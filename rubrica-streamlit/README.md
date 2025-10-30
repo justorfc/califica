@@ -189,8 +189,28 @@ python rubrica-streamlit/tests/sanity_check.py
 ```
 
 ## Notas rápidas
-
 - El fichero `rubrica-streamlit/.streamlit/secrets.toml` sirve para desarrollo local. No subas secretos a un repositorio público.
+
+### Secrets (clave opcional de acceso)
+
+Para proteger la interfaz en entornos compartidos la app busca la clave `EVAL_KEY` en Streamlit secrets.
+No es necesario crear este fichero para ejecutar la app localmente; si no existe, la app no pedirá contraseña.
+
+Si quieres habilitar la contraseña en tu entorno local, copia el ejemplo y edítalo:
+
+```bash
+cp rubrica-streamlit/.streamlit/secrets.example.toml rubrica-streamlit/.streamlit/secrets.toml
+# luego edita .streamlit/secrets.toml y cambia EVAL_KEY por tu clave
+```
+
+Ejemplo de `rubrica-streamlit/.streamlit/secrets.example.toml`:
+
+```toml
+# Ejemplo – no usar en producción
+EVAL_KEY = "changeme"
+```
+
+El repositorio está configurado para ignorar `.streamlit/secrets.toml` y evitar que claves de desarrollo se suban por error.
 - Los CSV generados por defecto se guardan en `rubrica-streamlit/data/`.
 - Si planeas un despliegue real, considera usar una base de datos externa para persistencia (Postgres/Supabase).
 

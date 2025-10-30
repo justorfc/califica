@@ -25,17 +25,25 @@ st.set_page_config(page_title="Gestor de Evaluaciones", page_icon=":memo:", layo
 # Inicializar DB
 init_db()
 
+# Acceso seguro a secretos: en algunos entornos (CI, contenedores) no existe
+# el archivo `.streamlit/secrets.toml`. Si no es accesible, usamos un dict vacío
+try:
+    _st_secrets = st.secrets
+except Exception:
+    # Cualquier problema accediendo a st.secrets: tratamos como no hay secretos
+    _st_secrets = {}
+
 
 # Sidebar — parámetros y controles
 st.sidebar.title("Controles")
 
 # Control de acceso opcional vía secreto `EVAL_KEY` (mostrado al inicio de la barra lateral)
-if st.secrets.get("EVAL_KEY"):
+if _st_secrets.get("EVAL_KEY"):
     pw = st.sidebar.text_input("Contraseña de acceso", type="password", placeholder="Introduce la contraseña de acceso")
     if not pw:
         st.sidebar.warning("Introduce la contraseña para continuar.")
         st.stop()
-    if pw != st.secrets.get("EVAL_KEY"):
+    if pw != _st_secrets.get("EVAL_KEY"):
         st.sidebar.error("Contraseña incorrecta. Acceso denegado.")
         st.stop()
 
