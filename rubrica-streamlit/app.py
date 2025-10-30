@@ -25,27 +25,13 @@ st.set_page_config(page_title="Gestor de Evaluaciones", page_icon=":memo:", layo
 # Inicializar DB
 init_db()
 
-# Acceso seguro a secretos: en algunos entornos (CI, contenedores) no existe
-# el archivo `.streamlit/secrets.toml`. Si no es accesible, usamos un dict vacío
-try:
-    _st_secrets = st.secrets
-except Exception:
-    # Cualquier problema accediendo a st.secrets: tratamos como no hay secretos
-    _st_secrets = {}
+# Nota: no usamos `st.secrets` en esta versión. La app es pública por defecto.
 
 
 # Sidebar — parámetros y controles
 st.sidebar.title("Controles")
 
-# Control de acceso opcional vía secreto `EVAL_KEY` (mostrado al inicio de la barra lateral)
-if _st_secrets.get("EVAL_KEY"):
-    pw = st.sidebar.text_input("Contraseña de acceso", type="password", placeholder="Introduce la contraseña de acceso")
-    if not pw:
-        st.sidebar.warning("Introduce la contraseña para continuar.")
-        st.stop()
-    if pw != _st_secrets.get("EVAL_KEY"):
-        st.sidebar.error("Contraseña incorrecta. Acceso denegado.")
-        st.stop()
+# Nota: no hay control de acceso por clave en la interfaz — la app es pública.
 
 logo_url = st.sidebar.text_input("Logo URL (opcional)", placeholder="https://.../logo.png")
 curso_sb = st.sidebar.text_input("Curso", value="", placeholder="Nombre del curso o materia")
@@ -187,7 +173,7 @@ Pasos rápidos para usar en clase:
 6. Usa `Cargar datos demo` para poblar ejemplos (útil para demostraciones rápidas).
 7. En el panel derecho puedes descargar el resumen o el detalle filtrado en CSV.
 
-Consejo: en entornos compartidos, configura `st.secrets['EVAL_KEY']` para proteger la interfaz.
+Consejo: en entornos compartidos, considera proteger el acceso mediante autenticación de red o un proxy.
 """
     )
 
