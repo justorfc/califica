@@ -39,6 +39,23 @@ streamlit run rubrica-streamlit/app.py --server.port 8501
 
 La UI estará disponible en `http://localhost:8501` (o en la URL que exponga tu entorno).
 
+### Script de ejecución (recomendado)
+
+Hay un script auxiliar en la raíz del proyecto `run.sh` que facilita arrancar, parar
+y revisar la app sin recordar las opciones de Streamlit ni manejar PIDs manualmente.
+
+Usos básicos (desde la raíz del repo):
+
+```bash
+./run.sh start    # arranca Streamlit (usa .venv si existe) y guarda PID en .run/streamlit.pid
+./run.sh stop     # para el proceso (usa PID guardado o pkill si no existe)
+./run.sh status   # muestra estado y puertos escuchando (8501/8502)
+./run.sh logs     # muestra las últimas líneas del log (streamlit_8501.log)
+```
+
+El script también soporta `restart` y es compatible con entornos donde exista un `.venv`
+local creado con `python3 -m venv .venv`.
+
 ## Comprobación automática (sanity check)
 
 Hay un script de comprobación rápida que inicializa una DB temporal, inserta registros,
