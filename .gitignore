@@ -205,3 +205,8 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+# Test artifacts created by sanity_check
+rubrica-streamlit/tests/sanity_export.csv
+rubrica-streamlit/tests/sanity_test.db
+rubrica-streamlit/tests/*.csv
+rubrica-streamlit/tests/*.db
