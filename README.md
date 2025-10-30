@@ -14,6 +14,24 @@ streamlit run rubrica-streamlit/app.py --server.port 8501
 
 He marcado esta versión inicial con la etiqueta `v0.1.0` en el repositorio.
 
+## Script de ejecución rápida
+
+Hay un script en la raíz llamado `run.sh` que facilita arrancar/parar y revisar
+el servidor Streamlit local sin manejar PIDs manualmente. Recomiendo usarlo desde
+la raíz del repo cuando trabajes localmente o en un Codespace.
+
+Comandos básicos:
+
+```bash
+./run.sh start    # arranca Streamlit (usa .venv si existe) y guarda PID en .run/streamlit.pid
+./run.sh stop     # detiene la instancia (usa PID guardado o pkill)
+./run.sh status   # muestra estado y puertos (8501/8502)
+./run.sh logs     # muestra las últimas líneas del log (streamlit_8501.log)
+```
+
+También puedes usar directamente `streamlit run rubrica-streamlit/app.py --server.port 8501`,
+pero el script simplifica el ciclo de desarrollo.
+
 ## Acceso y seguridad
 
 Esta aplicación se distribuye y ejecuta como pública por defecto (no solicita contraseña en la interfaz). Si vas a ejecutarla en un entorno compartido o accesible desde Internet, considera una de las siguientes opciones para proteger el acceso:
