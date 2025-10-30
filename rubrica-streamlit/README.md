@@ -191,6 +191,16 @@ python rubrica-streamlit/tests/sanity_check.py
 ## Notas rápidas
 - El fichero `rubrica-streamlit/.streamlit/secrets.toml` sirve para desarrollo local. No subas secretos a un repositorio público.
 
+### Estado de acceso — pública
+
+Esta aplicación está pensada para ser utilizada por el profesorado de la universidad sin
+restricciones: por defecto la app no requiere contraseña ni claves para acceder a la interfaz.
+Si no existe un fichero de secretos con `EVAL_KEY`, la app no solicitará ninguna contraseña.
+
+Si deseas proteger una instancia particular, puedes crear localmente `.streamlit/secrets.toml`
+con la clave `EVAL_KEY`, pero ten en cuenta que el repositorio no contiene claves y `.streamlit/secrets.toml`
+está ignorado para evitar fugas accidentales.
+
 ### Secrets (clave opcional de acceso)
 
 Para proteger la interfaz en entornos compartidos la app busca la clave `EVAL_KEY` en Streamlit secrets.
