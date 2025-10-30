@@ -1,3 +1,92 @@
+# rubrica-streamlit
+
+Aplicación Streamlit + SQLite para gestionar rúbricas y evaluaciones.
+
+Este repositorio contiene una app mínima (ubicada en la carpeta `rubrica-streamlit/`) que
+permite crear evaluaciones por criterios, calcular notas ponderadas según plantillas,
+persistir en SQLite o acumular en un buffer CSV en sesión, y exportar datos.
+
+Estado: proyecto en desarrollo (procedimientos básicos implementados). Fecha: 2025-10-30
+
+## Estructura
+
+- `rubrica-streamlit/app.py` — Interfaz principal (Streamlit).
+- `rubrica-streamlit/db.py` — Helpers SQLite (PRAGMAs, init, CRUD, export, backup CSV).
+- `rubrica-streamlit/utils.py` — Plantillas, validación y cálculo de nota.
+- `rubrica-streamlit/data/` — CSVs generados por la app.
+- `rubrica-streamlit/tests/` — Sanity check y pruebas rápidas.
+
+## Requisitos
+
+- Python 3.10+
+- pip
+
+Instalar dependencias (desde la raíz del repo):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r rubrica-streamlit/requirements.txt
+```
+
+## Ejecutar la app
+
+Desde la raíz del repositorio:
+
+```bash
+streamlit run rubrica-streamlit/app.py --server.port 8501
+```
+
+La UI estará disponible en `http://localhost:8501` (o en la URL que exponga tu entorno).
+
+## Comprobación automática (sanity check)
+
+Hay un script de comprobación rápida que inicializa una DB temporal, inserta registros,
+exporta CSV y valida utilidades:
+
+```bash
+python rubrica-streamlit/tests/sanity_check.py
+```
+
+## Funcionalidades destacadas
+
+- Plantillas de rúbrica (Agroindustrial, Civil, Estadística) con pesos y descripciones.
+- Modo de almacenamiento dual: `SQLite` (persistente en el contenedor) o `Sólo CSV` (buffer en sesión con descarga).
+- Backup CSV con timestamp: `db.backup_csv_timestamp()` — genera `rubrica-streamlit/data/backup_YYYYMMDD_HHMMSS.csv`.
+- Accesibilidad y UX: etiquetas cortas, captions descriptivas, placeholders, mensajes de error claros.
+- Exportación CSV desde BD y desde buffer de sesión.
+
+## Notas sobre renombrado del repositorio
+
+El repo fue renombrado desde `califica` a `rubrica-streamlit`. Los remotes locales se han
+actualizado automáticamente para apuntar a `https://github.com/justorfc/rubrica-streamlit`.
+
+Si tienes una copia local creada antes del cambio y el remote apunta aún al nombre antiguo,
+actualiza el origin con:
+
+```bash
+git remote set-url origin https://github.com/<usuario>/rubrica-streamlit
+```
+
+GitHub suele mantener redirecciones desde el nombre antiguo, por lo que la mayor parte de
+las operaciones seguirá funcionando aún sin cambios locales, pero es recomendable actualizar
+el `origin` para reflejar el nuevo nombre.
+
+## Contribuir
+
+1. Fork
+2. Crear branch con tus cambios
+3. Abrir Pull Request
+
+Para cambios mayores, abre un issue primero describiendo la propuesta.
+
+## Licencia
+
+Revisa el fichero `LICENSE` en la raíz del repo.
+
+---
+
+¿Quieres que además actualice el `README.md` de la raíz del repo (archivo `./README.md`) para que muestre un resumen y enlace hacia `rubrica-streamlit/`? Puedo hacerlo ahora y commitearlo.
 
 # Rubrica Streamlit
 
