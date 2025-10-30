@@ -141,6 +141,19 @@ def insert_row(conn: sqlite3.Connection, row: Dict[str, Any]) -> tuple[int, str]
     return cur.lastrowid, now
 
 
+def find_existing(conn: sqlite3.Connection, row: Dict[str, Any]) -> tuple[int, float] | None:
+    """Busca una fila existente por clave natural y devuelve (id, nota_final) si existe."""
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id, nota_final FROM evaluaciones WHERE curso=? AND evaluacion=? AND fecha=? AND grupo_o_estudiante=? LIMIT 1",
+        (row["curso"], row["evaluacion"], row["fecha"], row["grupo_o_estudiante"]),
+    )
+    r = cur.fetchone()
+    if r:
+        return int(r[0]), float(r[1]) if r[1] is not None else 0.0
+    return None
+
+
 def main(csv_path: str) -> None:
     if not os.path.exists(csv_path):
         print(f"Archivo no encontrado: {csv_path}")
@@ -163,7 +176,9 @@ def main(csv_path: str) -> None:
     init_db(conn)
 
     inserted = 0
+    skipped = 0
     inserted_rows: list[Dict[str, Any]] = []
+    skipped_rows: list[Dict[str, Any]] = []
     for _, r in df.iterrows():
         row = {c: r[c] for c in REQUIRED_COLUMNS}
         # calcular nota_final si no existe
@@ -179,19 +194,35 @@ def main(csv_path: str) -> None:
             continue
 
         try:
-            lastid, created_at = insert_row(conn, row)
-            inserted += 1
-            inserted_rows.append(
-                {
-                    "id": lastid,
-                    "curso": row["curso"],
-                    "evaluacion": row["evaluacion"],
-                    "fecha": row["fecha"],
-                    "grupo_o_estudiante": row["grupo_o_estudiante"],
-                    "nota_final": row["nota_final"],
-                    "created_at": created_at,
-                }
-            )
+            # deduplicación: evitar insertar si ya existe la misma combinación clave
+            exists = find_existing(conn, row)
+            if exists:
+                ex_id, ex_nota = exists
+                skipped += 1
+                skipped_rows.append(
+                    {
+                        "existing_id": ex_id,
+                        "curso": row["curso"],
+                        "evaluacion": row["evaluacion"],
+                        "fecha": row["fecha"],
+                        "grupo_o_estudiante": row["grupo_o_estudiante"],
+                        "existing_nota_final": ex_nota,
+                    }
+                )
+            else:
+                lastid, created_at = insert_row(conn, row)
+                inserted += 1
+                inserted_rows.append(
+                    {
+                        "id": lastid,
+                        "curso": row["curso"],
+                        "evaluacion": row["evaluacion"],
+                        "fecha": row["fecha"],
+                        "grupo_o_estudiante": row["grupo_o_estudiante"],
+                        "nota_final": row["nota_final"],
+                        "created_at": created_at,
+                    }
+                )
         except Exception as e:
             print(f"Error insertando fila: {e}")
 
@@ -199,15 +230,38 @@ def main(csv_path: str) -> None:
     print(f"Cargadas {inserted} filas desde {csv_path} -> rubrica.db")
 
     # Generar informe CSV con los ids insertados y notas calculadas
-    if inserted_rows:
-        report_dir = os.path.dirname(csv_path) or "data"
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        report_path = os.path.join(report_dir, f"insert_report_{ts}.csv")
-        try:
+    report_dir = os.path.dirname(csv_path) or "data"
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_path = os.path.join(report_dir, f"insert_report_{ts}.csv")
+    try:
+        if inserted_rows:
             pd.DataFrame(inserted_rows).to_csv(report_path, index=False, encoding="utf-8")
-            print(f"Informe de inserción creado: {report_path}")
-        except Exception as e:
-            print(f"No se pudo escribir el informe CSV: {e}")
+        else:
+            # crear archivo vacío con cabeceras si no hubo inserts
+            pd.DataFrame(columns=["id", "curso", "evaluacion", "fecha", "grupo_o_estudiante", "nota_final", "created_at"]).to_csv(report_path, index=False, encoding="utf-8")
+        print(f"Informe de inserción creado: {report_path}")
+    except Exception as e:
+        print(f"No se pudo escribir el informe CSV: {e}")
+
+    # Generar resumen agregado (inserted count, skipped count, avg/min/max de nota_final sobre los insertados)
+    summary_path = os.path.join(report_dir, f"insert_report_{ts}_summary.csv")
+    try:
+        if inserted_rows:
+            notas = [r["nota_final"] for r in inserted_rows]
+            summary = {
+                "inserted_count": inserted,
+                "skipped_count": skipped,
+                "nota_avg": round(float(sum(notas) / len(notas)), 2),
+                "nota_min": min(notas),
+                "nota_max": max(notas),
+            }
+        else:
+            summary = {"inserted_count": 0, "skipped_count": skipped, "nota_avg": "", "nota_min": "", "nota_max": ""}
+
+        pd.DataFrame(list(summary.items()), columns=["metric", "value"]).to_csv(summary_path, index=False, encoding="utf-8")
+        print(f"Resumen agregado creado: {summary_path}")
+    except Exception as e:
+        print(f"No se pudo escribir el resumen agregado: {e}")
 
     print("Verifica en la app Streamlit o usando: sqlite3 rubrica.db 'select count(*) from evaluaciones;'")
 
