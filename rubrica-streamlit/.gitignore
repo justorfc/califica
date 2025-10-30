@@ -1,0 +1,4 @@
+__pycache__/
+.streamlit/
+rubrica.db
+data/*.csv
