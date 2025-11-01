@@ -146,10 +146,11 @@ if st.sidebar.button("Cargar datos demo"):
         out = data_dir / "evaluaciones_only_csv.csv"
         df = pd.DataFrame(demo_items)
         # Si el archivo existe, anexar sin duplicar encabezado
+        # Guardar con BOM UTF-8 para mejorar compatibilidad con Excel/Windows
         if out.exists():
-            df.to_csv(out, mode="a", header=False, index=False)
+            df.to_csv(out, mode="a", header=False, index=False, encoding="utf-8-sig")
         else:
-            df.to_csv(out, index=False)
+            df.to_csv(out, index=False, encoding="utf-8-sig")
         st.sidebar.success(f"Insertadas {len(demo_items)} evaluaciones demo (CSV): {out}")
 
 
@@ -454,7 +455,8 @@ if st.button("Guardar evaluación"):
             item_row["created_at"] = datetime.datetime.now().isoformat()
             st.session_state.csv_buffer = pd.concat([df, pd.DataFrame([item_row])], ignore_index=True)
             st.success("Evaluación añadida al buffer CSV en sesión")
-            csv_bytes = st.session_state.csv_buffer.to_csv(index=False).encode("utf-8")
+            # Descargar el buffer en UTF-8 con BOM para evitar problemas en Excel
+            csv_bytes = st.session_state.csv_buffer.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
             st.download_button("Descargar CSV (buffer)", data=csv_bytes, file_name="evaluaciones_buffer.csv", mime="text/csv")
 
 
@@ -500,7 +502,7 @@ with left_col:
                 st.error(f"Error exportando CSV: {e}")
     else:
         if not st.session_state.csv_buffer.empty:
-            csv_bytes = st.session_state.csv_buffer.to_csv(index=False).encode("utf-8")
+            csv_bytes = st.session_state.csv_buffer.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
             st.download_button("Descargar CSV (buffer completo)", data=csv_bytes, file_name="evaluaciones_buffer_full.csv", mime="text/csv")
 
 with right_col:
@@ -509,10 +511,84 @@ with right_col:
     if not df_resumen.empty:
         st.table(df_resumen[["id", "fecha", "grupo_o_estudiante", "nota_final"]].head(10))
         # Descarga rápida del resumen
-        csv_res = df_resumen[["id", "fecha", "grupo_o_estudiante", "nota_final"]].to_csv(index=False).encode("utf-8")
+        csv_res = df_resumen[["id", "fecha", "grupo_o_estudiante", "nota_final"]].to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
         st.download_button("Descargar resumen CSV", data=csv_res, file_name="resumen_evaluaciones.csv", mime="text/csv")
     else:
         st.info("No hay datos para el reporte")
+
+    # --- Exportes detallados: por evaluación actual y para todas las evaluaciones ---
+    st.markdown("---")
+    st.subheader("Exportes detallados")
+
+    def build_detailed_df_from_rows(rows: list):
+        # rows: list of dicts from DB or constructed current item
+        items = []
+
+        def _sanitize_text(s: object) -> str:
+            """Eliminar saltos de línea y normalizar texto para CSV (una línea por celda)."""
+            if s is None:
+                return ""
+            txt = str(s)
+            parts = [p.strip() for p in txt.splitlines() if p.strip()]
+            return " | ".join(parts)
+
+        for r in rows:
+            item = r.copy()
+            # Añadir textos cualitativos por criterio y sanitizarlos
+            for crit in ["estructura", "programacion", "teoria", "ia", "reflexion", "presentacion"]:
+                try:
+                    val = int(round(float(item.get(crit, 3))))
+                except Exception:
+                    val = 3
+                item[f"{crit}_text"] = _sanitize_text(ejemplo_por_nota(crit, val))
+            # Sanitizar observaciones para evitar celdas multilínea
+            if "observaciones" in item:
+                item["observaciones"] = _sanitize_text(item.get("observaciones"))
+            items.append(item)
+
+        df = pd.DataFrame(items)
+        # Ordenar columnas para legibilidad
+        cols = ["id","plantilla","curso","evaluacion","fecha","grupo_o_estudiante"] if "id" in df.columns else ["plantilla","curso","evaluacion","fecha","grupo_o_estudiante"]
+        for crit in ["estructura","programacion","teoria","ia","reflexion","presentacion"]:
+            cols.extend([crit, f"{crit}_text"])
+        cols.extend(["nota_final","observaciones","created_at"]) if "created_at" in df.columns else cols.extend(["nota_final","observaciones"])
+        # keep only existing columns in that order
+        cols = [c for c in cols if c in df.columns]
+        return df[cols]
+
+    # Exportar evaluación actual (detallada) — siempre mostrar botón de descarga que toma el estado actual
+    current = {
+        "plantilla": plantilla_sel,
+        "curso": curso_sb.strip(),
+        "evaluacion": evaluacion_sb.strip(),
+        "fecha": fecha_sb.isoformat() if isinstance(fecha_sb, datetime.date) else str(fecha_sb),
+        "grupo_o_estudiante": selected or "current",
+    }
+    for crit in ["estructura","programacion","teoria","ia","reflexion","presentacion"]:
+        current[crit] = float(notas.get(crit, 3.0))
+    current["nota_final"] = float(final)
+    current["observaciones"] = obs_main.strip()
+    df_det = build_detailed_df_from_rows([current])
+    # Descargar con BOM UTF-8 para compatibilidad con Excel
+    csv_bytes = df_det.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+    safe_name = str(current.get("grupo_o_estudiante", "current")).replace(" ", "_")
+    st.download_button("Descargar evaluación actual (CSV)", data=csv_bytes, file_name=f"evaluacion_{safe_name}.csv", mime="text/csv")
+
+    # Exportar todas las evaluaciones detalladas desde la BD
+    if st.button("Exportar todas las evaluaciones (detalladas)"):
+        try:
+            rows = list_detalle()
+            df_all = build_detailed_df_from_rows(rows)
+            data_dir = Path(__file__).resolve().parent / "data"
+            data_dir.mkdir(exist_ok=True)
+            out = data_dir / "evaluaciones_detalldas_export.csv"
+            # Guardar archivo en disco usando UTF-8 BOM
+            df_all.to_csv(out, index=False, encoding="utf-8-sig")
+            csv_bytes = df_all.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+            st.success(f"Exportadas {len(df_all)} evaluaciones (detalladas)")
+            st.download_button("Descargar todas evaluaciones (detalladas)", data=csv_bytes, file_name="evaluaciones_detalladas.csv", mime="text/csv")
+        except DBError as e:
+            st.error(f"Error exportando detalle: {e}")
 
 # Sección: Detalle y filtros
 st.markdown("---")
@@ -556,8 +632,8 @@ if st.button("Aplicar filtros"):
         st.info("No hay registros que cumplan los filtros")
     else:
         st.dataframe(df_detalle)
-        csv_det = df_detalle.to_csv(index=False).encode("utf-8")
-        st.download_button("Descargar detalle CSV", data=csv_det, file_name="detalle_evaluaciones.csv", mime="text/csv")
+    csv_det = df_detalle.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+    st.download_button("Descargar detalle CSV", data=csv_det, file_name="detalle_evaluaciones.csv", mime="text/csv")
 
     # Backup completo de la tabla a CSV con timestamp (solo cuando usamos SQLite)
     if modo_almacenamiento == "SQLite":

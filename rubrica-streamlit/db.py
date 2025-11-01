@@ -249,7 +249,11 @@ def export_csv(path: Optional[str] = None, out_path: Optional[str] = None) -> st
             out = Path(out_path)
         else:
             out = data_dir / "evaluaciones_export.csv"
-        df.to_csv(out, index=False)
+        # Sanitizar textos multilínea para que cada celda quede en una sola línea
+        if "observaciones" in df.columns:
+            df["observaciones"] = df["observaciones"].fillna("").astype(str).apply(lambda s: " | ".join([p.strip() for p in s.splitlines() if p.strip()]))
+        # Escribir con BOM UTF-8 para mejorar compatibilidad con Excel/Windows
+        df.to_csv(out, index=False, encoding="utf-8-sig")
         return str(out)
     except DBError:
         raise
@@ -284,7 +288,11 @@ def backup_csv_timestamp(path: Optional[str] = None, out_dir: Optional[str] = No
         base_dir.mkdir(parents=True, exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         out = base_dir / f"backup_{ts}.csv"
-        df.to_csv(out, index=False)
+        # Sanitizar textos multilínea para que cada celda quede en una sola línea
+        if "observaciones" in df.columns:
+            df["observaciones"] = df["observaciones"].fillna("").astype(str).apply(lambda s: " | ".join([p.strip() for p in s.splitlines() if p.strip()]))
+        # Escribir con BOM UTF-8 para mejorar compatibilidad con Excel/Windows
+        df.to_csv(out, index=False, encoding="utf-8-sig")
         return str(out)
     except DBError:
         raise
