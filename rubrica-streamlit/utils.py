@@ -124,6 +124,68 @@ def niveles_texto() -> str:
     return "1=Deficiente · 2=Básico · 3=Aceptable · 4=Bueno · 5=Excelente"
 
 
+# Ejemplos de descripción por criterio y por nivel (1..5)
+EXAMPLES = {
+    "estructura": {
+        1: "Desorden total y sin secciones claras.",
+        2: "Estructura deficiente, faltan secciones importantes.",
+        3: "Estructura aceptable con secciones principales presentes.",
+        4: "Buena organización y secciones bien identificadas.",
+        5: "Excelente estructura: secciones claras, índice y navegación sencilla.",
+    },
+    "programacion": {
+        1: "Código incompleto, numerosos errores que impiden su ejecución.",
+        2: "Funciona parcialmente; falta limpieza y comentarios.",
+        3: "Código funcional y razonablemente estructurado.",
+        4: "Código bien documentado y modular; pruebas básicas incluidas.",
+        5: "Código impecable, reproducible y con buenas prácticas.",
+    },
+    "teoria": {
+        1: "Ausencia de explicación teórica o con errores conceptuales graves.",
+        2: "Explicaciones superficiales y con lagunas importantes.",
+        3: "Cobertura adecuada de los fundamentos teóricos.",
+        4: "Demuestra buen dominio teórico con referencias claras.",
+        5: "Dominio excelente y conexión clara entre teoría y práctica.",
+    },
+    "ia": {
+        1: "No hay aplicación de técnicas de IA cuando eran requeridas.",
+        2: "Aplicación limitada o incorrecta de técnicas de IA.",
+        3: "Uso aceptable de técnicas de IA con resultados básicos.",
+        4: "Aplicación correcta y justificada de métodos de IA.",
+        5: "Uso avanzado y bien justificado de técnicas de IA con validación.",
+    },
+    "reflexion": {
+        1: "Sin reflexión ni análisis crítico sobre el trabajo.",
+        2: "Reflexión superficial y poco crítica.",
+        3: "Reflexión adecuada con algunas ideas críticas.",
+        4: "Buena capacidad de autoevaluación y discusión de mejoras.",
+        5: "Reflexión profunda con propuestas claras de mejora y lecciones aprendidas.",
+    },
+    "presentacion": {
+        1: "Presentación desorganizada y difícil de seguir.",
+        2: "Presentación poco clara y con problemas de formato.",
+        3: "Presentación clara con algunos detalles a pulir.",
+        4: "Presentación profesional y bien estructurada.",
+        5: "Presentación sobresaliente: visuales, claridad y entrega impecables.",
+    },
+}
+
+
+def ejemplo_por_nota(criterio: str, nota: int) -> str:
+    """Devuelve un texto ejemplo para un criterio dado y una nota (1..5).
+
+    Si el criterio o la nota no están disponibles, devuelve una cadena genérica.
+    """
+    c = criterio.lower()
+    try:
+        n = int(nota)
+    except Exception:
+        n = 3
+    if c in EXAMPLES and n in EXAMPLES[c]:
+        return EXAMPLES[c][n]
+    return "Ejemplo no disponible para este criterio/nota."
+
+
 if __name__ == "__main__":
     # Pruebas simples / asserts
     sample = {

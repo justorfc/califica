@@ -4,7 +4,18 @@ import datetime
 from pathlib import Path
 from typing import List
 
-from utils import TEMPLATES, get_template, validate_notas, nota_final, niveles_texto
+from utils import TEMPLATES, get_template, validate_notas, nota_final, niveles_texto, ejemplo_por_nota
+
+
+# Map de títulos completos para cada criterio (mostrar al usuario)
+CRITERIA_TITLES = {
+    "estructura": "Estructura y claridad del Notebook",
+    "programacion": "Programación y calidad del código",
+    "teoria": "Fundamentos teóricos",
+    "ia": "Aplicación de técnicas de IA",
+    "reflexion": "Reflexión y autoevaluación",
+    "presentacion": "Presentación y entrega",
+}
 
 from db import (
     init_db,
@@ -223,25 +234,145 @@ if st.sidebar.button("Guardar evaluaciones"):
 
 # --- Panel principal: evaluación individual (selectbox, sliders, cálculo en vivo) ---
 st.markdown("---")
+# Mostrar rúbrica al inicio
+st.header("Rúbrica de evaluación (escala 1–5)")
+rubrica_rows = [
+    {
+        "Criterio": "Estructura y claridad del Notebook",
+        "1 (Deficiente)": "Desorden total y sin secciones claras.",
+        "2 (Básico)": "Secciones mínimas y confusas.",
+        "3 (Aceptable)": "Estructura básica pero incompleta.",
+        "4 (Bueno)": "Notebook organizado y legible.",
+        "5 (Excelente)": "Presentación profesional, secciones completas y estética cuidada.",
+        "Peso (%)": 15,
+    },
+    {
+        "Criterio": "Programación y resultados",
+        "1 (Deficiente)": "Código incompleto o erróneo.",
+        "2 (Básico)": "Código funcional parcial.",
+        "3 (Aceptable)": "Cálculos correctos en la mayoría.",
+        "4 (Bueno)": "Cálculos correctos y reproducibles.",
+        "5 (Excelente)": "Código optimizado, comentado y con análisis de resultados.",
+        "Peso (%)": 20,
+    },
+    {
+        "Criterio": "Comprensión teórica (Apéndices)",
+        "1 (Deficiente)": "Sin comprensión del contenido.",
+        "2 (Básico)": "Cita la teoría sin aplicarla.",
+        "3 (Aceptable)": "Aplica fórmulas con errores menores.",
+        "4 (Bueno)": "Explica y aplica la teoría correctamente.",
+        "5 (Excelente)": "Integra teoría, análisis y razonamiento crítico.",
+        "Peso (%)": 15,
+    },
+    {
+        "Criterio": "Uso documentado de IA",
+        "1 (Deficiente)": "No evidencia interacción.",
+        "2 (Básico)": "Prompts irrelevantes.",
+        "3 (Aceptable)": "Prompts útiles sin reflexión.",
+        "4 (Bueno)": "Uso adecuado con reflexión clara.",
+        "5 (Excelente)": "Prompts precisos, variados y estratégicos.",
+        "Peso (%)": 10,
+    },
+    {
+        "Criterio": "Reflexión técnica e interpretación de resultados",
+        "1 (Deficiente)": "Sin conclusiones.",
+        "2 (Básico)": "Conclusiones vagas.",
+        "3 (Aceptable)": "Análisis básico.",
+        "4 (Bueno)": "Argumentación técnica clara.",
+        "5 (Excelente)": "Conclusiones profundas y bien justificadas.",
+        "Peso (%)": 15,
+    },
+    {
+        "Criterio": "Presentación oral y trabajo en equipo",
+        "1 (Deficiente)": "Sin cohesión ni participación.",
+        "2 (Básico)": "Exposición incompleta o desorganizada.",
+        "3 (Aceptable)": "Participación parcial.",
+        "4 (Bueno)": "Presentación fluida con buena coordinación.",
+        "5 (Excelente)": "Exposición profesional, colaborativa y con dominio técnico.",
+        "Peso (%)": 25,
+    },
+]
+df_rubrica = pd.DataFrame(rubrica_rows)
+df_rubrica = df_rubrica.set_index("Criterio")
+with st.expander("Mostrar rúbrica de evaluación", expanded=False):
+    st.table(df_rubrica)
+
+st.markdown("---")
 st.header("Evaluación individual")
-# roster desde sidebar
+# roster desde sidebar (prioridad: texto pegado en la barra lateral > CSV de `data/roster_groups_*.csv` > fallback Grupo 1..5)
 roster = [g.strip() for g in grupos_text.splitlines() if g.strip()]
 if not roster:
-    roster = ["-"]
+    # Intentar cargar roster desde CSV más reciente en data/
+    data_dir = Path(__file__).resolve().parent / "data"
+    roster = []
+    try:
+        files = sorted(data_dir.glob("roster_groups_*.csv"), reverse=True)
+        for f in files:
+            try:
+                df_r = pd.read_csv(f)
+                if "group" in df_r.columns:
+                    # Mantener orden y eliminar duplicados
+                    roster = list(dict.fromkeys([str(x).strip() for x in df_r["group"].tolist() if str(x).strip()]))
+                    if roster:
+                        break
+            except Exception:
+                continue
+    except Exception:
+        roster = []
 
-selected = st.selectbox("Seleccionar grupo/estudiante", roster)
+    if not roster:
+        # Fallback rápido útil en demos o si no hay datos
+        roster = [f"Grupo {i}" for i in range(1, 6)]
+
+# Mostrar selectbox con el roster, seleccionar el primero por defecto
+selected = st.selectbox("Seleccionar grupo/estudiante", roster, index=0)
+
+def _open_expander(criterio: str):
+    """Callback para abrir el expander de un criterio cuando el slider cambia."""
+    st.session_state[f"show_{criterio}"] = True
+
+
+def _close_all_expanders():
+    for c in ["estructura", "programacion", "teoria", "ia", "reflexion", "presentacion"]:
+        st.session_state[f"show_{c}"] = False
+
 
 st.subheader("Puntuaciones por criterio")
 notas: dict = {}
 # Obtener pesos/descripciones desde la plantilla seleccionada
 pesos, descripciones = get_template(plantilla_sel)
 for criterio in ["estructura", "programacion", "teoria", "ia", "reflexion", "presentacion"]:
-    # Etiqueta corta + porcentaje; la descripción completa se muestra como caption para accesibilidad
-    short_label = f"{criterio.capitalize()} — {pesos.get(criterio,0)}%"
-    notas[criterio] = st.slider(short_label, min_value=1.0, max_value=5.0, step=0.5, value=3.0)
-    st.caption(descripciones.get(criterio, ""))
+    # Usar título completo si está disponible
+    titulo = CRITERIA_TITLES.get(criterio, criterio.capitalize())
+    short_label = f"{titulo} — {pesos.get(criterio,0)}%"
 
-# cálculo en vivo
+    show_key = f"show_{criterio}"
+    slider_key = f"slider_{criterio}"
+    if show_key not in st.session_state:
+        st.session_state[show_key] = False
+
+    c1, c2 = st.columns([2, 3])
+    with c1:
+        notas[criterio] = st.slider(short_label, min_value=1.0, max_value=5.0, step=0.5, value=3.0, key=slider_key, on_change=_open_expander, args=(criterio,))
+    with c2:
+        with st.expander(f"Descripción — {titulo}", expanded=st.session_state.get(show_key, False)):
+            desc = descripciones.get(criterio, "")
+            st.write(desc)
+            st.markdown(f"**Peso:** {pesos.get(criterio,0)}%")
+            st.markdown(f"**Niveles:** {niveles_texto()}")
+
+            # Mostrar ejemplo dinámico según el valor actual del slider
+            try:
+                current_val = st.session_state.get(slider_key, 3.0)
+                iv = int(round(float(current_val)))
+            except Exception:
+                iv = 3
+            iv = max(1, min(5, iv))
+            ejemplo = ejemplo_por_nota(criterio, iv)
+            st.markdown(f"**Ejemplo para nota {iv}:**")
+            st.info(ejemplo)
+
+    # cálculo en vivo
     try:
         validate_notas(notas)
         final = nota_final(notas, pesos=pesos)
@@ -251,7 +382,38 @@ for criterio in ["estructura", "programacion", "teoria", "ia", "reflexion", "pre
 
 st.metric("Nota final (ponderada)", f"{final}")
 
-obs_main = st.text_area("Observaciones")
+# Generar observaciones automáticas a partir de las notas seleccionadas
+def _build_observaciones():
+    lines = []
+    for criterio in ["estructura", "programacion", "teoria", "ia", "reflexion", "presentacion"]:
+        slider_key = f"slider_{criterio}"
+        titulo = CRITERIA_TITLES.get(criterio, criterio.capitalize())
+        try:
+            current_val = st.session_state.get(slider_key, 3.0)
+            iv = int(round(float(current_val)))
+        except Exception:
+            iv = 3
+        iv = max(1, min(5, iv))
+        ejemplo = ejemplo_por_nota(criterio, iv)
+        # Formato: "Título — N. Ejemplo"
+        lines.append(f"{titulo} — {iv}. {ejemplo}")
+    return "\n".join(lines)
+
+# Checkbox para permitir bloquear la actualización automática si el docente quiere editar a mano
+if "observaciones_lock" not in st.session_state:
+    st.session_state["observaciones_lock"] = False
+
+generated_obs = _build_observaciones()
+lock = st.checkbox("Bloquear observaciones (no actualizar automáticamente)", value=st.session_state.get("observaciones_lock", False), key="observaciones_lock")
+if lock:
+    # mantener texto previo si existe
+    if "observaciones_text" not in st.session_state:
+        st.session_state["observaciones_text"] = ""
+    obs_main = st.text_area("Observaciones", value=st.session_state.get("observaciones_text", ""), key="observaciones_text")
+else:
+    # Forzar actualización del contenido en session_state para que el widget muestre el texto generado
+    st.session_state["observaciones_text"] = generated_obs
+    obs_main = st.text_area("Observaciones", value=st.session_state.get("observaciones_text", ""), key="observaciones_text")
 
 if "csv_buffer" not in st.session_state:
     st.session_state.csv_buffer = pd.DataFrame(columns=["plantilla","curso","evaluacion","fecha","grupo_o_estudiante","estructura","programacion","teoria","ia","reflexion","presentacion","nota_final","observaciones","created_at"])
