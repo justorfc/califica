@@ -541,8 +541,9 @@ with right_col:
                 except Exception:
                     val = 3
                 item[f"{crit}_text"] = _sanitize_text(ejemplo_por_nota(crit, val))
-            # Sanitizar observaciones para evitar celdas multilínea
+            # Conservar versión raw de observaciones y sanitizar la que irá al CSV
             if "observaciones" in item:
+                item["observaciones_raw"] = str(item.get("observaciones", ""))
                 item["observaciones"] = _sanitize_text(item.get("observaciones"))
             items.append(item)
 
