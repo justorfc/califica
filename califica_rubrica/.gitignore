@@ -1,0 +1,6 @@
+__pycache__/
+# Ignorar únicamente el fichero de secretos que contiene claves privadas para el entorno de desarrollo.
+# Mantener la carpeta `.streamlit/` en el repo permite incluir un `secrets.example.toml` como plantilla.
+.streamlit/secrets.toml
+rubrica.db
+data/*.csv
