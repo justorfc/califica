@@ -210,3 +210,7 @@ rubrica-streamlit/tests/sanity_export.csv
 rubrica-streamlit/tests/sanity_test.db
 rubrica-streamlit/tests/*.csv
 rubrica-streamlit/tests/*.db
+
+# Ignore local DB and generated data/reports
+rubrica.db
+data/*.csv
